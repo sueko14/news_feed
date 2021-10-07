@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:news_feed/data/category_info.dart';
+import 'package:news_feed/data/load_status.dart';
 import 'package:news_feed/data/search_type.dart';
 import 'package:news_feed/view/components/article_tile.dart';
 import 'package:news_feed/view/components/category_chips.dart';
@@ -12,7 +13,7 @@ class NewsListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.read<NewsListViewModel>();
-    if (viewModel.isLoading && viewModel.articles.isEmpty) {
+    if (viewModel.loadStatus != LoadStatus.LOADING && viewModel.articles.isEmpty) {
       Future(() => viewModel.getNews(
           searchType: SearchType.CATEGORY, category: Category.categories[0]));
     }
@@ -39,7 +40,7 @@ class NewsListPage extends StatelessWidget {
               Expanded(
                 child: Consumer<NewsListViewModel>(
                   builder: (context, model, child) {
-                    return model.isLoading
+                    return model.loadStatus == LoadStatus.LOADING
                         ? Center(
                             child: CircularProgressIndicator(),
                           )

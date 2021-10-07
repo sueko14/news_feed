@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:news_feed/data/load_status.dart';
 import 'package:news_feed/models/db/dao.dart';
 import 'package:news_feed/util/extensions.dart';
 
@@ -9,22 +10,30 @@ import 'package:news_feed/data/search_type.dart';
 import 'package:news_feed/main.dart';
 import 'package:news_feed/models/model/news_model.dart';
 
-class NewsRepository {
+class NewsRepository extends ChangeNotifier{
   // NEWS API https://newsapi.org
   static const API_KEY = "b1bc0c65e49d45a9bb15c284e27c8bca";
   static const BASE_URL = "https://newsapi.org/v2/top-headlines?country=jp";
-
 
   //DI対応
   final NewsDao _dao;
   NewsRepository({dao}): _dao = dao;
 
-  Future<List<Article>> getNews({
+  List<Article> _articles = [];
+  List<Article> get articles => _articles;
+
+  LoadStatus _loadStatus = LoadStatus.DONE;
+  LoadStatus get loadStatus => _loadStatus;
+
+  Future<void> getNews({
     required SearchType searchType,
     String? keyword,
     Category? category,
   }) async {
-    List<Article> results = [];
+    //List<Article> results = [];
+    _loadStatus = LoadStatus.LOADING;
+    notifyListeners();
+
     http.Response? response;
 
     switch (searchType) {
@@ -48,22 +57,24 @@ class NewsRepository {
       final responseBody = response.body;
       //print("responseBody: $responseBody");
       //results = News.fromJson(jsonDecode(responseBody)).articles;
-      results = await insertAndReadFromDB(jsonDecode(responseBody));
+       await insertAndReadFromDB(jsonDecode(responseBody));
+       _loadStatus = LoadStatus.DONE;
     }else{
+      _loadStatus = LoadStatus.ERROR;
       throw Exception("failed to load news");
     }
-
-    return results;
+    notifyListeners();
   }
 
-  Future<List<Article>>insertAndReadFromDB(responseBody) async {
+  Future<void>insertAndReadFromDB(responseBody) async {
     //final dao = myDatabase.newsDao; DI対応のため削除
-    final articles = News.fromJson(responseBody).articles;
+    final articlesFromNetwork = News.fromJson(responseBody).articles;
 
     // Webから取得した記事リスト（Article）をDBのテーブルクラス(ArticleRecord)に変換してDB登録・DBから取得
-    final articleRecords = await _dao.insertAndReadNewsFromDB(articles.toArticleRecords(articles));
+    final articlesFromDB =
+    await _dao.insertAndReadNewsFromDB(articlesFromNetwork.toArticleRecords(articlesFromNetwork));
 
     // DBから取得したデータをモデルクラスに再変換して返す
-    return articleRecords.toArticles(articleRecords);
+    _articles = articlesFromDB.toArticles(articlesFromDB);
   }
 }
